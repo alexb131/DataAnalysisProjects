@@ -1,0 +1,137 @@
+---
+title: "Cyclistic Case Study"
+author: "Alex Botello"
+date: "9/11/2021"
+---
+
+# How Does a Bike-Share Navigate Speedy Success?
+
+## Introduction
+
+This case study was completed as the capstone project for the Google Data Analytics Professional Certificate. It was one of the options provided by the course wherein Cyclistic is a fictional bike-share company created for the purpose of performing real-world data analyst tasks. However, the data provided and used is real data from Chicago's Divvy bicycle sharing service. The project will go through the six phases of the data analysis process: ask, prepare, process, analyze, share, and act. 
+
+## Business task
+
+Get a better understanding of how casual riders and annual members use Cyclistic bikes differently in order to help develop a marketing strategy aimed at converting casual riders into members.
+
+## Data sources
+
+Three months of public Cyclistic trip data from December 2020 to February 2021, provided by Motivate International Inc. as csv files, was downloaded and then imported into Excel. The data does not include any personally identifiable information which limits some analysis, like being able to match multiple trips to a single customer. Data that can be useful for analysis is the length of their rides along with the day of the week that they ride. These values will have to be calculated or extracted from existing columns.
+
+## Data cleaning and manipulation
+
+**For each of the three datasets in Excel:**
+
+* created column "ride_length" to calculate the length of each ride by subtracting column "started_at" from column "ended_at" and formatted as HH:MM:SS
+
+* created column "day_of_week" to see the day of the week that each ride started by using the "WEEKDAY" command and formatted as General, noting that 1 = Sunday and 7 = Saturday
+
+* no duplicate ride_id values found which means that not only are there no duplicate rows, but also all ride_id values are unique, so it’s not possible to match multiple trips to customers to measure something like a customer’s frequency of use
+
+* noticed that there are many rows with blanks in the start_station_name, start_station_id, end_station_name, and/or end_station_id columns, but those columns aren’t needed for this particular analysis
+
+**Transitioned to R to continue the process:**
+
+Loaded the necessary packages
+
+```{r message=FALSE, warning=FALSE, results='hide'}
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library(ggplot2)
+```
+Imported the three Excel files
+
+```{r message=FALSE, warning=FALSE, results='hide'}
+tripdata_202102 <- read_excel("~/Downloads/Cyclistic_trip_data_Excel/202102-divvy-tripdata.xlsx")
+tripdata_202101 <- read_excel("~/Downloads/Cyclistic_trip_data_Excel/202101-divvy-tripdata.xlsx")
+tripdata_202012 <- read_excel("~/Downloads/Cyclistic_trip_data_Excel/202012-divvy-tripdata.xlsx")
+```
+
+Combined the data
+
+```{r}
+all_trips <- bind_rows(tripdata_202102, tripdata_202101, tripdata_202012)
+```
+
+Recalculated and updated `ride_length` to fix a consistency issue that likely occurred when importing data and to format as time
+
+```{r}
+all_trips$ride_duration <- difftime(all_trips$ended_at,all_trips$started_at)
+all_trips <- all_trips %>%
+  select(-c(ride_length))
+all_trips <- rename(all_trips, ride_length = "ride_duration")
+```
+
+Converted `ride_length` to numeric to perform calculations
+
+```{r}
+all_trips$ride_length <- as.numeric(as.character(all_trips$ride_length))
+```
+
+Removed some rows where `ride_length` was negative
+
+```{r}
+all_trips_v2 <- all_trips[!(all_trips$ride_length<0),]
+```
+
+## Analysis
+
+Summary of descriptive analysis on `ride_length`
+
+```{r}
+summary(all_trips_v2$ride_length)
+```
+
+Comparison between members and casual riders
+
+```{r}
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = mean)
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = median)
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = max)
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = min)
+```
+
+Average `ride_length` by rider type and weekday (1 = Sunday, 7 = Saturday)
+
+```{r}
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual + all_trips_v2$day_of_week, FUN = mean)
+```
+
+## Supporting visualizations
+
+```{r message=FALSE, warning=FALSE}
+all_trips_v2 %>%
+  mutate(weekday = wday(started_at, label = TRUE)) %>%
+  group_by(member_casual, weekday) %>%
+  summarise(number_of_rides = n()
+            ,average_duration = (mean(ride_length) / 60)) %>%
+  arrange(member_casual, weekday) %>%
+  ggplot(aes(x = weekday, y = number_of_rides, fill = member_casual)) +
+  geom_col(position = "dodge") +
+  labs(title = "Number of rides by rider type for each weekday", y = "number of rides") +
+  guides(fill = guide_legend(title = NULL))
+```
+
+```{r message=FALSE, warning=FALSE}
+all_trips_v2 %>%
+  mutate(weekday = wday(started_at, label = TRUE)) %>%
+  group_by(member_casual, weekday) %>%
+  summarise(number_of_rides = n()
+            ,average_duration = (mean(ride_length) / 60)) %>%
+  arrange(member_casual, weekday) %>%
+  ggplot(aes(x = weekday, y = average_duration, fill = member_casual)) +
+  geom_col(position = "dodge") +
+  labs(title = "Average ride length by rider type for each weekday", y = "average ride length (min)") +
+  guides(fill = guide_legend(title = NULL))
+```
+
+## Key findings
+
+First, the number of rides by members is a lot more than that of casual users for every single day of the week. While the busiest days for members are in the middle of the week (Wednesday and Thursday), the busiest days for casual users are in the weekend (Saturday and Sunday). However, when it comes to ride length, casual users, on average, ride a lot longer than members every single day of the week. For casual users, their average ride lengths are longer in the weekend.
+
+## Recommendations/next steps
+
+Since casual users are more frequent in the weekends, likely riding for recreation, and ride longer, likely to make the most of their passes, Cyclistic can let them know how a membership can be a better deal. With a membership, they can use the bikes more days of the week and  not only for recreation purposes. They also don’t have to worry about buying multiple passes or “trying to make the most of each pass”. Other data can be collected for more related analysis. Data to analyze individual users’ frequency and survey data from casual users regarding their usage can be helpful. 
+
+#### Link to data sources: https://divvy-tripdata.s3.amazonaws.com/index.html
