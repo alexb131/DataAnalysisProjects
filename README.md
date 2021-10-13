@@ -1,2 +1,2 @@
-# Portfolio
-Collection of my data analysis projects
+# DataAnalysisProjects
+Collection of data analysis projects to add to portfolio
